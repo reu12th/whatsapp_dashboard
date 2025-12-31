@@ -20,7 +20,7 @@ A lightweight, internal Customer Relationship Management (CRM) tool for Platinum
 
 1.  **Clone the repository**
     ```bash
-    git clone [https://github.com/YOUR_USERNAME/pds-crm.git](https://github.com/YOUR_USERNAME/pds-crm.git)
+    git clone https://github.com/reu12th/pds-crm.git)
     cd pds-crm
     ```
 
@@ -76,7 +76,6 @@ pds-crm/
 ├── templates/
 │   └── index.html      # Frontend Dashboard
 └── uploads/            # Temporary storage for CSV uploads
-
 ```
 
 ## 📝 CSV Format for Import
@@ -87,7 +86,6 @@ When uploading contacts, your CSV file should look like this:
 name,phone
 John Doe,2348012345678
 Jane Smith,2348098765432
-
 ```
 
 * **Headers:** `name` and `phone` (case-insensitive).
@@ -97,22 +95,4 @@ Jane Smith,2348098765432
 
 This tool uses the official WhatsApp Business API. Ensure you comply with Meta's messaging policies and obtain user opt-ins before sending broadcasts to avoid number banning.
 
-```
-
 ---
-
-### Don't forget the `requirements.txt`
-
-As mentioned before, make sure you create the `requirements.txt` file so the installation command works. You can create a file with that name and paste this list inside:
-
-```text
-fastapi
-uvicorn
-jinja2
-python-multipart
-requests
-pandas
-python-dotenv
-aiofiles
-
-```

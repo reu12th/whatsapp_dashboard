@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDS Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #0f766e;
+            --primary-dark: #0d5f58;
+            --accent: #f59e0b;
+            --bg: #f8fafc;
+            --text: #334155;
+            --border: #e2e8f0;
+        }
+
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; overflow: hidden; }
+        
+        /* 3-COLUMN LAYOUT */
+        .app-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 340px; /* Sidebar | Main | Info Panel */
+            height: 100vh;
+        }
+
+        /* COLUMNS */
+        .col-left { background: white; border-right: 1px solid var(--border); padding: 25px; display: flex; flex-direction: column; gap: 20px; }
+        .col-main { padding: 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px; }
+        .col-right { background: #fff; border-left: 1px solid var(--border); padding: 25px; display: flex; flex-direction: column; gap: 25px; overflow-y: auto; }
+
+        h1 { font-size: 18px; color: #0f172a; margin: 0; font-weight: 700; }
+        h2 { font-size: 11px; text-transform: uppercase; color: #64748b; margin: 0 0 10px 0; letter-spacing: 0.05em; font-weight: 700; }
+
+        /* UI ELEMENTS */
+        .card { background: white; padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        input, select { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; box-sizing: border-box; }
+        button { width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; transition: 0.2s; }
+        
+        .btn-primary { background: var(--primary); color: white; } .btn-primary:hover { background: var(--primary-dark); }
+        .btn-launch { background: var(--accent); color: white; height: 100%; width: 100%; display: flex; align-items: center; justify-content: center; gap: 5px; } .btn-launch:hover { background: #d97706; }
+        .btn-outline { background: white; border: 1px solid #cbd5e1; color: #475569; } .btn-outline:hover { background: #f1f5f9; }
+
+        /* STATUS COLORS */
+        .text-online { color: #16a34a; } .text-offline { color: #dc2626; }
+
+        /* SIDEBAR STATS GRID (NEW) */
+        .sidebar-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .mini-stat { background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid var(--border); text-align: center; }
+        .mini-val { font-size: 18px; font-weight: 700; color: #0f172a; }
+        .mini-lbl { font-size: 10px; color: #64748b; text-transform: uppercase; margin-top: 2px; }
+
+        /* TABLE */
+        .table-wrap { flex-grow: 1; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: white; display: flex; flex-direction: column; }
+        .table-scroll { flex-grow: 1; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th { background: #f8fafc; font-size: 11px; color: #64748b; text-align: left; padding: 12px 20px; position: sticky; top: 0; border-bottom: 1px solid var(--border); }
+        td { padding: 10px 20px; border-bottom: 1px solid #f1f5f9; font-size: 13px; color: #334155; }
+        .badge { padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 700; }
+        .sent { background: #dcfce7; color: #166534; } .pending { background: #ffedd5; color: #9a3412; } .failed { background: #fee2e2; color: #991b1b; }
+
+        /* PREVIEW PHONE */
+        .phone-mockup {
+            background: white; border-radius: 20px; border: 6px solid #1e293b; overflow: hidden;
+            box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.15); display: flex; flex-direction: column; height: 450px; /* Reduced slightly */
+        }
+        .phone-header { background: #075e54; color: white; padding: 15px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 10px; }
+        .phone-screen { background: #efe7dd; flex-grow: 1; padding: 15px; overflow-y: auto; }
+        .msg-bubble { background: white; padding: 6px; border-radius: 8px; box-shadow: 0 1px 1px rgba(0,0,0,0.1); max-width: 100%; }
+        .msg-img { width: 100%; border-radius: 6px; display: block; margin-bottom: 8px; object-fit: cover; }
+        .msg-text { color: #111827; white-space: pre-wrap; line-height: 1.4; padding: 0 5px; font-size: 13px; }
+
+        /* POPUP MODAL */
+        #sendingOverlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8); z-index: 2000; display: none;
+            justify-content: center; align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        .modal-card {
+            background: white; padding: 30px; border-radius: 16px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            text-align: center; width: 300px; border: 1px solid #e2e8f0;
+        }
+        .loader { 
+            border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); 
+            border-radius: 50%; width: 40px; height: 40px; 
+            animation: spin 1s linear infinite; margin: 0 auto 15px auto; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+    </style>
+</head>
+<body>
+
+<script id="data-templates" type="application/json">
+    {{ templates_json | safe }}
+</script>
+<script id="data-images" type="application/json">
+    {{ images_json | safe }}
+</script>
+
+<div id="sendingOverlay">
+    <div class="modal-card">
+        <div class="loader"></div>
+        <h3 id="statusText" style="margin: 0; color: #0f172a; font-size: 16px; font-weight: 600;">Initializing...</h3>
+        <p id="statusSub" style="margin: 5px 0 0 0; color: #64748b; font-size: 13px;">Connecting to Meta...</p>
+    </div>
+</div>
+
+<div class="app-container">
+
+    <div class="col-left">
+        <div><h1>PDS Manager</h1><span style="font-size: 11px; color: #64748b;">CRM & Audience</span></div>
+        
+        <div>
+            <h2>New List</h2>
+            <form action="/create_group" method="post" style="display:flex; gap:5px; margin:0;"><input type="text" name="group_name" placeholder="Name" required style="margin:0"><button type="submit" class="btn-outline" style="width:auto">+</button></form>
+        </div>
+
+        <div style="flex-grow:1; overflow-y:auto;">
+            <h2>Your Lists</h2>
+            {% for g in groups %}
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:8px; border-bottom:1px solid #eee;">
+                <div><div style="font-weight:600; font-size:13px;">{{ g[1] }}</div><div style="font-size:11px; color:#888;">{{ g[2] }} contacts</div></div>
+                <div style="display:flex; gap:2px;">
+                    <form action="/reset_group" method="post" onsubmit="return confirm('Reset?');" style="margin:0"><input type="hidden" name="group_id" value="{{ g[0] }}"><button class="btn-outline" style="padding:4px 8px;">♻️</button></form>
+                    <form action="/delete_group" method="post" onsubmit="return confirm('Delete?');" style="margin:0"><input type="hidden" name="group_id" value="{{ g[0] }}"><button class="btn-outline" style="padding:4px 8px; color:red;">✕</button></form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div style="background:#f1f5f9; padding:15px; border:1px dashed #cbd5e1; border-radius:8px;">
+            <h2>Import CSV</h2>
+            <form action="/upload" method="post" enctype="multipart/form-data" style="margin:0">
+                <select name="group_id" required style="margin-bottom:10px;"><option value="" disabled selected>Select List...</option>{% for g in groups %}<option value="{{ g[0] }}">{{ g[1] }}</option>{% endfor %}</select>
+                <input type="file" name="file" accept=".csv" required style="background:white; margin-bottom:10px;">
+                <button class="btn-primary">Upload</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-main">
+        <div style="display:flex; justify-content:space-between;">
+            <h1>Broadcast Dashboard</h1>
+            <div style="font-size:11px; font-weight:600;" class="{{ 'text-online' if api_online else 'text-offline' }}">
+                ● {{ 'API Connected' if api_online else 'API Offline' }}
+            </div>
+        </div>
+
+        <div class="card" style="border-top: 4px solid var(--accent);">
+            <form onsubmit="launchBroadcast(event)">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 120px; gap: 15px; align-items: end;">
+                    <div>
+                        <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">1. SELECT AUDIENCE</label>
+                        <select name="group_id" required style="margin:0; width:100%;"><option value="" disabled selected>Choose List...</option>{% for g in groups %}<option value="{{ g[0] }}">{{ g[1] }} ({{ g[2] }})</option>{% endfor %}</select>
+                    </div>
+                    <div>
+                        <label style="font-size:11px; font-weight:700; color:#64748b; display:block; margin-bottom:5px;">2. SELECT TEMPLATE</label>
+                        <select name="template" required onchange="showPreview(this)" style="margin:0; width:100%;"><option value="" disabled selected>Choose Template...</option>{% for t in templates %}<option value="{{ t.name }}">{{ t.name }}</option>{% endfor %}</select>
+                    </div>
+                    <button type="submit" class="btn-launch">🚀 Launch</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="table-wrap">
+            <div style="padding:15px; border-bottom:1px solid #eee;"><h2>Activity Log</h2></div>
+            <div class="table-scroll">
+                <table>
+                    <thead><tr><th>Name</th><th>Phone</th><th>Status</th></tr></thead>
+                    <tbody>
+                        {% for c in contacts %}
+                        <tr>
+                            <td>{{ c[1] }}</td>
+                            <td style="font-family: monospace; font-weight: 500;">{{ c[2] }}</td>
+                            <td>{% if c[3] == "sent" %} <span class="badge sent">Sent</span>{% elif c[3] == "failed" %} <span class="badge failed">Failed</span>{% else %} <span class="badge pending">Pending</span> {% endif %}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-right">
+        
+        <div>
+            <h2>Live Preview</h2>
+            <div class="phone-mockup">
+                <div class="phone-header">
+                    <div style="width:24px; height:24px; background:white; border-radius:50%;"></div>
+                    Platinum Dental
+                </div>
+                <div class="phone-screen">
+                    <div class="msg-bubble">
+                        <img id="previewImg" class="msg-img" src="https://platinumdental.com.ng/wp-content/uploads/2025/03/PDS.png">
+                        <div id="previewText" class="msg-text">Select a template to preview...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div>
+            <h2>Campaign Metrics</h2>
+            {% set sent_count = contacts | selectattr(3, 'equalto', 'sent') | list | length %}
+            {% set pending_count = contacts | selectattr(3, 'equalto', 'pending') | list | length %}
+            
+            <div class="sidebar-stats">
+                <div class="mini-stat">
+                    <div class="mini-val">{{ contacts|length }}</div>
+                    <div class="mini-lbl">Total</div>
+                </div>
+                <div class="mini-stat" style="border-color: #fdba74;">
+                    <div class="mini-val" style="color:#d97706;">{{ pending_count }}</div>
+                    <div class="mini-lbl">Queued</div>
+                </div>
+                <div class="mini-stat" style="border-color: #86efac;">
+                    <div class="mini-val" style="color:#16a34a;">{{ sent_count }}</div>
+                    <div class="mini-lbl">Sent</div>
+                </div>
+                <div class="mini-stat" style="border-color: #fca5a5;">
+                    <div class="mini-val" style="color:#dc2626;">{{ contacts | selectattr(3, 'equalto', 'failed') | list | length }}</div>
+                    <div class="mini-lbl">Failed</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+    // READ DATA SAFELY
+    const templates = JSON.parse(document.getElementById('data-templates').textContent);
+    const templateImages = JSON.parse(document.getElementById('data-images').textContent);
+
+    function showPreview(select) {
+        const templateName = select.value;
+        const msgText = document.getElementById('previewText');
+        const msgImg = document.getElementById('previewImg');
+        
+        const tmpl = templates.find(t => t.name === templateName);
+        if (tmpl) {
+            const body = tmpl.components.find(c => c.type === 'BODY');
+            if (body) msgText.textContent = body.text;
+        }
+
+        if (templateImages[templateName]) {
+            msgImg.src = templateImages[templateName];
+        } else {
+            msgImg.src = templateImages['default'];
+        }
+    }
+
+    function launchBroadcast(event) {
+        event.preventDefault();
+        if (!confirm("Are you sure you want to launch this campaign?")) return;
+
+        const form = event.target;
+        const formData = new FormData(form);
+
+        const overlay = document.getElementById('sendingOverlay');
+        const statusText = document.getElementById('statusText');
+        const statusSub = document.getElementById('statusSub');
+        
+        overlay.style.display = 'flex';
+        statusText.innerText = "Initializing...";
+        statusSub.innerText = "Connecting to Meta...";
+
+        fetch('/broadcast', { method: 'POST', body: formData })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'started') startPolling();
+                else { alert(data.message); overlay.style.display = 'none'; }
+            })
+            .catch(() => { alert("Connection Failed"); overlay.style.display = 'none'; });
+    }
+
+    function startPolling() {
+        const statusText = document.getElementById('statusText');
+        const statusSub = document.getElementById('statusSub');
+        
+        const interval = setInterval(() => {
+            fetch('/broadcast_status').then(res => res.json()).then(state => {
+                if (state.is_sending) {
+                    statusText.innerText = "Sending Campaign...";
+                    statusSub.innerText = `${state.sent} / ${state.total} messages sent`;
+                } else {
+                    clearInterval(interval);
+                    statusText.innerText = "🎉 Campaign Complete!";
+                    statusSub.innerText = "Refreshing dashboard...";
+                    setTimeout(() => window.location.reload(), 1500);
+                }
+            });
+        }, 1000);
+    }
+</script>
+
+</body>
+</html>
