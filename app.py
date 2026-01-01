@@ -24,9 +24,9 @@ HEADERS = {
 
 # ================= TEMPLATE IMAGES =================
 TEMPLATE_IMAGES = {
-    "subsidized_dental_care": "https://tinyurl.com/pdsflyer",
-    "subsidized_dental_care2": "https://tinyurl.com/pdsflyer",
-    "default": "https://tinyurl.com/pdsflyer"
+    "subsidized_dental_care": "https://i.postimg.cc/JnHr0k4c/pds-flyer.png",
+    "subsidized_dental_care2": "https://i.postimg.cc/JnHr0k4c/pds-flyer.png",
+    "default": "https://i.postimg.cc/JnHr0k4c/pds-flyer.png"
 }
 
 # ================= CACHE STORAGE =================
@@ -245,3 +245,81 @@ def home(request: Request):
 @app.get("/broadcast_status")
 def broadcast_status():
     return current_status
+
+# ================= POST ROUTES (Paste this at the bottom) =================
+
+@app.post("/create_group")
+def create_group(group_name: str = Form(...)):
+    # This print statement will show in your terminal
+    print(f"📝 Attempting to create group: {group_name}")
+    
+    # We removed the try/except block so you can see errors if they happen
+    cursor.execute("INSERT INTO groups (name) VALUES (?)", (group_name,))
+    conn.commit()
+    
+    print("✅ Group created successfully")
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/upload")
+async def upload(file: UploadFile, group_id: int = Form(...)):
+    print(f"📂 Uploading file to group ID: {group_id}")
+    
+    df = pd.read_csv(file.file)
+    # Normalize headers to lowercase
+    df.columns = [c.lower().strip() for c in df.columns]
+    
+    # Get existing phones to prevent duplicates
+    cursor.execute("SELECT phone FROM contacts WHERE group_id=?", (group_id,))
+    existing = set(row[0] for row in cursor.fetchall())
+    
+    data = []
+    for _, row in df.iterrows():
+        # Find phone column (supports 'phone', 'mobile', 'whatsapp')
+        raw_phone = row.get("phone", row.get("mobile", row.get("whatsapp", "")))
+        phone = normalize(str(raw_phone))
+        
+        if phone and phone not in existing:
+            # Use empty string if name is missing
+            name = row.get("name", row.get("fullname", row.get("first name", "")))
+            if pd.isna(name): name = ""
+            
+            data.append((name, phone, "pending", group_id))
+            existing.add(phone)
+            
+    if data:
+        cursor.executemany("INSERT INTO contacts (name, phone, status, group_id) VALUES (?, ?, ?, ?)", data)
+        conn.commit()
+        print(f"✅ Added {len(data)} new contacts.")
+        
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/broadcast")
+def broadcast(background_tasks: BackgroundTasks, template: str = Form(...), group_id: int = Form(...)):
+    if current_status["is_sending"]:
+        return JSONResponse(content={"status": "error", "message": "Broadcast already in progress"}, status_code=400)
+
+    cursor.execute("SELECT id, name, phone FROM contacts WHERE status != 'sent' AND group_id = ?", (group_id,))
+    rows = cursor.fetchall()
+    
+    if rows:
+        background_tasks.add_task(process_broadcast_task, template, group_id, rows)
+        return JSONResponse(content={"status": "started", "count": len(rows)})
+    else:
+        return JSONResponse(content={"status": "error", "message": "No pending contacts in this group"}, status_code=400)
+
+
+@app.post("/reset_group")
+def reset_group(group_id: int = Form(...)):
+    cursor.execute("UPDATE contacts SET status='pending' WHERE group_id=?", (group_id,))
+    conn.commit()
+    return RedirectResponse("/", status_code=303)
+
+
+@app.post("/delete_group")
+def delete_group(group_id: int = Form(...)):
+    cursor.execute("DELETE FROM contacts WHERE group_id=?", (group_id,))
+    cursor.execute("DELETE FROM groups WHERE id=?", (group_id,))
+    conn.commit()
+    return RedirectResponse("/", status_code=303)
